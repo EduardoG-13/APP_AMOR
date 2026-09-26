@@ -1,7 +1,13 @@
 import { Router } from 'express';
 import { getRadio, searchMusic } from '../lib/innertube.js';
 import { getSongLyrics } from '../lib/lyrics.js';
-import { checkAvailable, getTrackInfo, resolveMedia, warmUp } from '../lib/ytdlp.js';
+import {
+  checkAvailable,
+  diagnoseClients,
+  getTrackInfo,
+  resolveMedia,
+  warmUp,
+} from '../lib/ytdlp.js';
 import { pipeUpstream } from '../lib/http.js';
 import { looksLikeManifest, rewriteManifest } from '../lib/hls.js';
 import { requireMediaToken } from '../middleware/auth.js';
@@ -64,6 +70,15 @@ musicRouter.post('/warm', (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 5) : [];
   for (const id of ids) warmUp(String(id), req.body?.type === 'video' ? 'video' : 'audio');
   res.json({ ok: true, warming: ids.length });
+});
+
+/** Qual cliente do YouTube passa a partir deste servidor. */
+musicRouter.get('/diagnose/:id', async (req, res, next) => {
+  try {
+    res.json(await diagnoseClients(req.params.id));
+  } catch (error) {
+    next(error);
+  }
 });
 
 musicRouter.get('/status', async (_req, res, next) => {

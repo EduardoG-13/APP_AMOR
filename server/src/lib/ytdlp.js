@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TtlCache } from './cache.js';
@@ -100,6 +101,74 @@ function runYtdlp(args, { timeoutMs = 60_000 } = {}) {
   });
 }
 
+/**
+ * Do IP de um datacenter (Render, Fly, Railway...) o YouTube recusa o
+ * player e responde "Failed to extract any player response". Duas
+ * saidas, nesta ordem:
+ *
+ *  1. Rotacao de cliente: cada "player_client" conversa com uma API
+ *     diferente do YouTube, e nem todas sao barradas do mesmo jeito.
+ *     Custa nada tentar e resolve boa parte dos casos.
+ *
+ *  2. Cookies de uma conta logada: o pedido passa a parecer um
+ *     usuario de verdade. E o unico caminho que funciona quando o IP
+ *     esta mesmo marcado. Use uma conta descartavel, nao a principal:
+ *     o Google pode marcar a conta junto com o IP.
+ *
+ * Exporte os cookies com a extensao "Get cookies.txt LOCALLY" no
+ * youtube.com e cole o conteudo inteiro em YTDLP_COOKIES.
+ */
+const CLIENT_FALLBACKS = [
+  null, // o padrao do yt-dlp, que ja e o melhor palpite
+  'youtube:player_client=tv',
+  'youtube:player_client=web_safari',
+  'youtube:player_client=mweb',
+  'youtube:player_client=android_vr',
+  'youtube:player_client=tv_embedded',
+  'youtube:player_client=web_embedded',
+];
+
+/** O cliente que funcionou da ultima vez vai primeiro na proxima. */
+let preferredClient = null;
+
+let cookiesPath = null;
+function getCookiesFile() {
+  if (cookiesPath !== null) return cookiesPath || null;
+
+  const raw = process.env.YTDLP_COOKIES;
+  if (!raw || raw.trim().length < 20) {
+    cookiesPath = '';
+    return null;
+  }
+
+  try {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'ns-cookies-'));
+    cookiesPath = path.join(dir, 'cookies.txt');
+    // O arquivo precisa terminar em quebra de linha, senao o yt-dlp
+    // descarta a ultima entrada.
+    writeFileSync(cookiesPath, raw.endsWith('\n') ? raw : `${raw}\n`, 'utf8');
+    console.log('[yt-dlp] usando cookies de conta logada');
+    return cookiesPath;
+  } catch (error) {
+    console.warn('[yt-dlp] nao consegui gravar os cookies:', error.message);
+    cookiesPath = '';
+    return null;
+  }
+}
+
+function argsForClient(client) {
+  const extra = [];
+
+  const cookies = getCookiesFile();
+  if (cookies) extra.push('--cookies', cookies);
+
+  const fromEnv = process.env.YTDLP_EXTRACTOR_ARGS;
+  if (fromEnv) extra.push('--extractor-args', fromEnv);
+  else if (client) extra.push('--extractor-args', client);
+
+  return extra;
+}
+
 const BASE_ARGS = [
   '--no-warnings',
   '--no-playlist',
@@ -129,13 +198,46 @@ function mimeFor(info, type) {
 }
 
 async function dumpJson(sourceId, type) {
-  const raw = await runYtdlp([
-    ...BASE_ARGS,
-    '-f',
-    FORMAT[type],
-    '--dump-single-json',
-    `https://www.youtube.com/watch?v=${sourceId}`,
-  ]);
+  // Comeca pelo cliente que funcionou por ultimo e so entao percorre
+  // o resto, pra nao pagar a fila inteira em toda faixa.
+  const order = preferredClient
+    ? [preferredClient, ...CLIENT_FALLBACKS.filter((c) => c !== preferredClient)]
+    : CLIENT_FALLBACKS;
+
+  let raw = null;
+  let lastError = null;
+
+  for (const client of order) {
+    try {
+      raw = await runYtdlp([
+        ...BASE_ARGS,
+        ...argsForClient(client),
+        '-f',
+        FORMAT[type],
+        '--dump-single-json',
+        `https://www.youtube.com/watch?v=${sourceId}`,
+      ]);
+      preferredClient = client;
+      break;
+    } catch (error) {
+      lastError = error;
+      // Erro que nao e bloqueio (video privado, removido) nao melhora
+      // trocando de cliente.
+      if (!/player response|bot|sign in|unable to extract|403|429/i.test(error.message)) {
+        throw error;
+      }
+    }
+  }
+
+  if (raw === null) {
+    throw Object.assign(
+      new Error(
+        `O YouTube recusou este servidor. ${lastError?.message || ''} ` +
+          'Defina YTDLP_COOKIES com os cookies de uma conta logada pra liberar.'
+      ),
+      { status: 502 }
+    );
+  }
 
   const info = JSON.parse(raw);
   const chosen = info.requested_downloads?.[0] || info;
@@ -224,4 +326,47 @@ export async function checkAvailable() {
   } catch (error) {
     return { available: false, error: error.message };
   }
+}
+
+/**
+ * Testa cada player_client e diz qual funciona a partir do IP deste
+ * servidor. E o jeito rapido de descobrir se o problema e o IP ou a
+ * faixa, sem ficar redeployando no escuro.
+ */
+export async function diagnoseClients(sourceId) {
+  const results = [];
+
+  for (const client of CLIENT_FALLBACKS) {
+    const started = Date.now();
+    try {
+      const raw = await runYtdlp(
+        [
+          ...BASE_ARGS,
+          ...argsForClient(client),
+          '-f',
+          FORMAT.audio,
+          '--dump-single-json',
+          `https://www.youtube.com/watch?v=${sourceId}`,
+        ],
+        { timeoutMs: 45_000 }
+      );
+      const info = JSON.parse(raw);
+      const chosen = info.requested_downloads?.[0] || info;
+      results.push({
+        client: client || '(padrao)',
+        ok: Boolean(chosen?.url),
+        formato: chosen?.format_id || null,
+        ms: Date.now() - started,
+      });
+    } catch (error) {
+      results.push({
+        client: client || '(padrao)',
+        ok: false,
+        erro: String(error.message).slice(0, 160),
+        ms: Date.now() - started,
+      });
+    }
+  }
+
+  return { comCookies: Boolean(getCookiesFile()), resultados: results };
 }
