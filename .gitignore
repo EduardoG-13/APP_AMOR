@@ -31,3 +31,7 @@ server/bin/
 *.njsproj
 *.sln
 *.sw?
+
+# Cookies do YouTube (credencial de sessao) - nunca commitar
+cookies.txt
+*.cookies.txt

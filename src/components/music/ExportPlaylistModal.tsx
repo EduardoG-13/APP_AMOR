@@ -21,6 +21,10 @@ import { useAppStore } from '../../store/useAppStore';
 import type { ExportPlatform, ExportSyncResult } from '../../types';
 import { cn } from '../../lib/utils';
 
+// O YouTube Music ficou de fora de proposito: exportar pra la exige
+// criar projeto no Google Cloud, ativar API e tela de consentimento.
+// O backend continua sabendo fazer (routes/export.js) se um dia
+// valer a pena ligar.
 const PLATFORMS: Array<{
   id: ExportPlatform;
   name: string;
@@ -32,12 +36,6 @@ const PLATFORMS: Array<{
     name: 'Spotify',
     hint: 'Procura a faixa equivalente no catálogo do Spotify',
     accent: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
-  },
-  {
-    id: 'youtube',
-    name: 'YouTube Music',
-    hint: 'Match exato — as faixas já vêm daqui',
-    accent: 'text-red-400 border-red-500/30 bg-red-500/10',
   },
   {
     id: 'deezer',
