@@ -1,14 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { MusicTrackRecord, PlaylistConfigRecord, UserProfile } from '../types';
+import type { MusicTrackRecord, PlaylistConfigRecord, UserProfile } from '../types';
 
 export function useMusic() {
   const queryClient = useQueryClient();
+  const channelId = useId();
 
   useEffect(() => {
     const channel = supabase
-      .channel('schema-music-changes')
+      .channel(`schema-music-changes${channelId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'music_tracks' },
@@ -28,7 +29,7 @@ export function useMusic() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, channelId]);
 
   const musicQuery = useQuery({
     queryKey: ['music_tracks'],

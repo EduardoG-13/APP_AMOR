@@ -5,6 +5,11 @@ export type WhoSlept = 'ninguem' | 'eduardo' | 'laura' | 'ambos';
 export interface MovieRecord {
   id: string;
   tmdb_id: number;
+  /** Filme ou serie: os dois convivem na mesma lista do casal. */
+  media_type: 'movie' | 'tv';
+  /** Preenchido quando a obra entrou por um favorito da TV. */
+  iptv_stream_url: string | null;
+  iptv_series_key: string | null;
   title: string;
   original_title: string | null;
   overview: string | null;

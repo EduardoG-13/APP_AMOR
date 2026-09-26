@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { supabase } from '../lib/supabase';
-import { getMovieDetails, mapGenreIdsToNames } from '../lib/tmdb';
-import {
+import { getMovieDetails, getTvDetails, mapGenreIdsToNames } from '../lib/tmdb';
+import type {
   MovieWithDetails,
   MovieRecord,
   WatchlistRecord,
@@ -24,11 +24,14 @@ export function fireMatchConfetti() {
 
 export function useMovies() {
   const queryClient = useQueryClient();
+  // Nome unico por instancia: dois componentes com o mesmo nome de
+  // canal fazem o segundo subscribe() lancar e derrubam a tela.
+  const channelId = useId();
 
   // Realtime subscription for instant multi-device sync
   useEffect(() => {
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel(`schema-db-changes${channelId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'movie_watchlist' },
@@ -48,7 +51,7 @@ export function useMovies() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, channelId]);
 
   const moviesQuery = useQuery({
     queryKey: ['movies'],
@@ -127,29 +130,42 @@ export function useMovies() {
     mutationFn: async ({
       tmdbMovie,
       profile,
+      mediaType = 'movie',
+      iptvStreamUrl = null,
+      iptvSeriesKey = null,
     }: {
       tmdbMovie: TMDBMovieResult;
       profile: UserProfile;
+      mediaType?: 'movie' | 'tv';
+      /** Quando veio de um favorito da TV, guarda o link pra abrir direto. */
+      iptvStreamUrl?: string | null;
+      iptvSeriesKey?: string | null;
     }) => {
       // Fetch extra details if runtime is missing
       let runtimeMinutes: number | null = null;
       let detailedGenres = mapGenreIdsToNames(tmdbMovie.genre_ids);
 
       try {
-        const details = await getMovieDetails(tmdbMovie.id);
+        const details =
+          mediaType === 'tv'
+            ? await getTvDetails(tmdbMovie.id)
+            : await getMovieDetails(tmdbMovie.id);
         if (details.runtime) runtimeMinutes = details.runtime;
         if (details.genres && details.genres.length > 0) {
           detailedGenres = details.genres.map((g) => g.name);
         }
       } catch (e) {
-        console.warn('Could not fetch TMDB movie extra details:', e);
+        console.warn('Could not fetch TMDB extra details:', e);
       }
 
       // 1. Check if movie already exists
+      // O mesmo id do TMDB pode existir como filme e como serie, por
+      // isso a busca considera os dois campos.
       const { data: existingMovie } = await supabase
         .from('movies')
         .select('*')
         .eq('tmdb_id', tmdbMovie.id)
+        .eq('media_type', mediaType)
         .maybeSingle();
 
       let movieId: string;
@@ -171,6 +187,9 @@ export function useMovies() {
           .from('movies')
           .insert({
             tmdb_id: tmdbMovie.id,
+            media_type: mediaType,
+            iptv_stream_url: iptvStreamUrl,
+            iptv_series_key: iptvSeriesKey,
             title: tmdbMovie.title,
             original_title: tmdbMovie.original_title || null,
             overview: tmdbMovie.overview || null,

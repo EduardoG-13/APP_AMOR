@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, User, CheckCircle2, Plus, Sparkles, Filter } from 'lucide-react';
-import { MovieWithDetails, MovieListTab } from '../../types';
+import type { MovieWithDetails, MovieListTab } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
 import { MovieCard } from './MovieCard';
 

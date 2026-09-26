@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Music2, ExternalLink, Trash2, Heart, MessageSquare } from 'lucide-react';
-import { MusicTrackRecord } from '../../types';
+import { Music2, ExternalLink, Trash2, Heart } from 'lucide-react';
+import type { MusicTrackRecord } from '../../types';
 
 interface MusicTrackCardProps {
   track: MusicTrackRecord;

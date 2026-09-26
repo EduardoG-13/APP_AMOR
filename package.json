@@ -1,13 +1,16 @@
 {
   "name": "nossa-sessao",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n web,api -c magenta,cyan \"vite --host\" \"node --watch server/src/index.js\"",
+    "dev:web": "vite --host",
+    "dev:api": "node --watch server/src/index.js",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server/src/index.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
@@ -15,7 +18,9 @@
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "framer-motion": "^13.4.4",
+    "hls.js": "^1.7.3",
     "lucide-react": "^1.48.0",
+    "mpegts.js": "^1.8.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tailwind-merge": "^3.7.0",
@@ -28,6 +33,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.6.1",
+    "concurrently": "^9.2.1",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.19",

@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Dices, Plus, Flame, CheckCircle2, User, Heart, Clock } from 'lucide-react';
+import { Dices, Plus, Flame, CheckCircle2, User, Heart } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useCoupleStats } from '../../hooks/useCoupleStats';
-import { MovieWithDetails } from '../../types';
+import type { MovieWithDetails } from '../../types';
 
 interface HeroSectionProps {
   movies: MovieWithDetails[];

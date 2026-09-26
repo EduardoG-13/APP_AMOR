@@ -1,4 +1,4 @@
-import { SonglinkResolvedTrack } from '../types';
+import type { SonglinkResolvedTrack } from '../types';
 
 interface OdesliResponse {
   entityUniqueId: string;

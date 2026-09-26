@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Music, Sparkles, Loader2, Heart, Film, Check } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { resolveMusicLink } from '../../lib/songlink';
-import { SonglinkResolvedTrack, MovieWithDetails } from '../../types';
+import type { SonglinkResolvedTrack, MovieWithDetails } from '../../types';
 
 interface AddMusicModalProps {
   onAddTrack: (track: {

@@ -3,6 +3,15 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  server: {
+    // Em dev o frontend fala com o backend por /api, sem CORS no meio.
+    proxy: {
+      '/api': {
+        target: process.env.VITE_DEV_API_TARGET || 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
@@ -24,6 +33,37 @@ export default defineConfig({
             purpose: 'any maskable',
           },
         ],
+      },
+      workbox: {
+        // Capas e thumbs: cache longo, elas nunca mudam.
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/(lh3\.googleusercontent\.com|i\.ytimg\.com|image\.tmdb\.org)\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'capas-e-posters',
+              expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Músicas baixadas para ouvir offline. rangeRequests é
+            // obrigatório: sem isso o <audio> não consegue dar seek
+            // numa faixa servida do cache.
+            urlPattern: /\/api\/music\/audio\//,
+            handler: 'CacheFirst',
+            method: 'GET',
+            options: {
+              cacheName: 'musicas-offline',
+              rangeRequests: true,
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [200, 206] },
+            },
+          },
+        ],
+        // Streams de IPTV e proxy de áudio nunca devem cair no
+        // precache do build.
+        navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ],

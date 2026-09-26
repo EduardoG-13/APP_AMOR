@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Plus, Check, Loader2, Star, Calendar } from 'lucide-react';
 import { useMovieSearch } from '../../hooks/useMovieSearch';
 import { useAppStore } from '../../store/useAppStore';
-import { TMDBMovieResult, MovieWithDetails } from '../../types';
+import type { TMDBMovieResult, MovieWithDetails } from '../../types';
 import { mapGenreIdsToNames, getTMDBImageUrl } from '../../lib/tmdb';
 
 interface MovieSearchModalProps {
@@ -19,7 +19,7 @@ export const MovieSearchModal: React.FC<MovieSearchModalProps> = ({
   const [query, setQuery] = useState('');
   const [addingTmdbId, setAddingTmdbId] = useState<number | null>(null);
 
-  const { data: results, isLoading, debouncedQuery } = useMovieSearch(query);
+  const { data: results, isLoading } = useMovieSearch(query);
 
   if (!isSearchModalOpen) return null;
 
@@ -41,7 +41,7 @@ export const MovieSearchModal: React.FC<MovieSearchModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}

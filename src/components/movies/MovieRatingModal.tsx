@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, Moon, Tag, Tv, MessageSquare, Loader2, Award } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
-import { WhoSlept } from '../../types';
+import type { WhoSlept } from '../../types';
 
 const FUN_TAGS = [
   '😭 Desidratamos de Chorar',
@@ -123,7 +123,7 @@ export const MovieRatingModal: React.FC<MovieRatingModalProps> = ({ onSaveRating
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}

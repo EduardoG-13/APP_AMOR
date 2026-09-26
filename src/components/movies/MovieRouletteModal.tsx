@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Dices, RotateCcw, Check, Sparkles, Star, Calendar } from 'lucide-react';
+import { X, RotateCcw, Check, Sparkles, Star, Calendar } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAppStore } from '../../store/useAppStore';
-import { MovieWithDetails } from '../../types';
+import type { MovieWithDetails } from '../../types';
 import { formatMinutes } from '../../lib/utils';
 
 interface MovieRouletteModalProps {
@@ -79,7 +79,7 @@ export const MovieRouletteModal: React.FC<MovieRouletteModalProps> = ({ movies }
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xl">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xl">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}

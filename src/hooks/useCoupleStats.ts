@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { MovieWithDetails } from '../types';
+import type { MovieWithDetails } from '../types';
 
 const RELATIONSHIP_START = import.meta.env.VITE_RELATIONSHIP_START_DATE || '2024-03-24';
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Settings, Play, Music, ExternalLink, Check, Save } from 'lucide-react';
-import { PlaylistConfigRecord } from '../../types';
+import { Settings, Play, Music, Save } from 'lucide-react';
+import type { PlaylistConfigRecord } from '../../types';
 
 interface EmbeddedPlayersProps {
   playlists: PlaylistConfigRecord[];

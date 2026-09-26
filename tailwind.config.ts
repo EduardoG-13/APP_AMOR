@@ -5,6 +5,12 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      screens: {
+        // Celular pequeno. Sem isto, todo "xs:" no código nunca
+        // aplica e o conteúdo marcado com "hidden xs:block" fica
+        // invisível em qualquer tela.
+        xs: '420px',
+      },
       colors: {
         cinema: {
           base: '#08090D',

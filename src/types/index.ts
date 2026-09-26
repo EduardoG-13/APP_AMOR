@@ -1,4 +1,5 @@
 export * from './database';
+export * from './streaming';
 
 export interface TMDBMovieResult {
   id: number;
@@ -29,4 +30,4 @@ export interface SonglinkResolvedTrack {
 }
 
 export type MovieListTab = 'match' | 'eduardo' | 'laura' | 'watched';
-export type MainView = 'movies' | 'music';
+export type MainView = 'movies' | 'music' | 'tv';

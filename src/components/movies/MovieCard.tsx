@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Flame, Star, CheckCircle, Info, Trash2, Heart, Moon } from 'lucide-react';
-import { MovieWithDetails } from '../../types';
+import type { MovieWithDetails } from '../../types';
 import { useAppStore } from '../../store/useAppStore';
 import { formatMinutes, formatDatePtBr } from '../../lib/utils';
 
@@ -22,7 +22,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({
   const isEduardo = activeProfile === 'eduardo';
   const myInterest = isEduardo ? watchlist.wanted_by_eduardo : watchlist.wanted_by_laura;
   const partnerInterest = isEduardo ? watchlist.wanted_by_laura : watchlist.wanted_by_eduardo;
-  const partnerName = isEduardo ? 'Laura' : 'Eduardo';
+  // (nome do parceiro fica no texto do botão de match, abaixo)
 
   const canMatchTogether = !watchlist.is_watched && !myInterest && partnerInterest;
 
