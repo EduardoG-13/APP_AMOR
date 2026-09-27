@@ -188,13 +188,13 @@ export async function getPlaylist(token, playlistId) {
   try {
     const playlist = await apiRequest(
       token,
-      `/playlists/${playlistId}?fields=id,name,external_urls,tracks(total)`
+      `/playlists/${playlistId}?fields=id,name,external_urls,tracks(total),items(total)`
     );
     return {
       id: playlist.id,
       url: playlist.external_urls?.spotify || null,
       name: playlist.name,
-      total: playlist.tracks?.total ?? 0,
+      total: playlist.tracks?.total ?? playlist.items?.total ?? 0,
     };
   } catch (error) {
     if (error.status === 404) return null;
@@ -205,12 +205,16 @@ export async function getPlaylist(token, playlistId) {
 /** URIs já presentes na playlist remota — evita duplicar em re-sync. */
 export async function listPlaylistTrackUris(token, playlistId) {
   const uris = new Set();
-  let url = `/playlists/${playlistId}/items?fields=items(track(uri)),next&limit=100`;
+  // No endpoint novo a faixa vem em `item`, nao em `track`. Pedir
+  // fields=items(track(uri)) devolve objetos vazios, e a playlist
+  // parecia sempre vazia -- por isso o re-sync duplicava tudo.
+  let url = `/playlists/${playlistId}/items?fields=items(item(uri),track(uri)),next&limit=100`;
 
   while (url) {
     const page = await apiRequest(token, url);
-    for (const item of page?.items || []) {
-      if (item?.track?.uri) uris.add(item.track.uri);
+    for (const entry of page?.items || []) {
+      const uri = entry?.item?.uri || entry?.track?.uri;
+      if (uri) uris.add(uri);
     }
     url = page?.next ? page.next.replace(API, '') : null;
   }
