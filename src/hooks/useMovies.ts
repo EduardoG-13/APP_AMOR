@@ -85,22 +85,20 @@ export function useMovies() {
       }
 
       // 3. Fetch ratings for these movies
+      //
+      // Tem que ser por movie_id. Filtrar por `id` compara a chave
+      // primária da avaliação com o id do filme: nunca casa, e como a
+      // consulta volta vazia SEM erro, as notas salvas sumiam na
+      // leitura — salvava e parecia que não tinha funcionado.
       const { data: ratingsData, error: ratingsError } = await supabase
         .from('movie_ratings')
         .select('*')
-        .in('id', movieIds); // Note: or movie_id
+        .in('movie_id', movieIds);
 
-      let safeRatings: RatingRecord[] = [];
-      if (!ratingsError && ratingsData) {
-        safeRatings = ratingsData;
-      } else {
-        // Query by movie_id if PK id differed
-        const { data: ratingsByMovieId } = await supabase
-          .from('movie_ratings')
-          .select('*')
-          .in('movie_id', movieIds);
-        if (ratingsByMovieId) safeRatings = ratingsByMovieId;
+      if (ratingsError) {
+        console.error('Error fetching ratings:', ratingsError);
       }
+      const safeRatings: RatingRecord[] = ratingsData || [];
 
       const moviesMap = new Map<string, MovieRecord>(
         (moviesData || []).map((m) => [m.id, m])

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getRadio, searchMusic } from '../lib/innertube.js';
 import { getSongLyrics } from '../lib/lyrics.js';
+import { findAlternatives } from '../lib/alternatives.js';
 import {
   checkAvailable,
   diagnoseClients,
@@ -70,6 +71,25 @@ musicRouter.post('/warm', (req, res) => {
   const ids = Array.isArray(req.body?.ids) ? req.body.ids.slice(0, 5) : [];
   for (const id of ids) warmUp(String(id), req.body?.type === 'video' ? 'video' : 'audio');
   res.json({ ok: true, warming: ids.length });
+});
+
+/**
+ * Onde mais dá pra ouvir esta faixa. O player chama isto quando o
+ * áudio completo falha, pra oferecer a prévia e os links em vez de
+ * só mostrar erro.
+ */
+musicRouter.get('/alternatives/:id', async (req, res, next) => {
+  try {
+    res.json(
+      await findAlternatives(req.params.id, {
+        title: String(req.query.title || ''),
+        artist: String(req.query.artist || ''),
+        durationSec: req.query.duration ? Number(req.query.duration) : null,
+      })
+    );
+  } catch (error) {
+    next(error);
+  }
 });
 
 /** Qual cliente do YouTube passa a partir deste servidor. */

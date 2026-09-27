@@ -195,3 +195,21 @@ export interface CoupleProfileRecord {
   avatar_url: string | null;
   updated_at: string;
 }
+
+/** A mesma faixa em outra plataforma, pra ouvir quando o áudio falha. */
+export interface TrackAlternative {
+  title: string;
+  artist: string;
+  durationSec: number | null;
+  url: string | null;
+  /** MP3 de 30s liberado publicamente (a Deezer quase sempre tem). */
+  previewUrl: string | null;
+  coverUrl: string | null;
+  score: number;
+}
+
+export interface AlternativesResult {
+  deezer: TrackAlternative | null;
+  spotify: TrackAlternative | null;
+  previewUrl: string | null;
+}

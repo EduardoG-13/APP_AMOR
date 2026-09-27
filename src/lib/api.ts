@@ -1,4 +1,5 @@
 import type {
+  AlternativesResult,
   ConnectionStatus,
   ExportPlatform,
   ExportSyncResult,
@@ -103,6 +104,23 @@ export function getRadio(sourceId: string) {
   return request<{ tracks: StreamTrack[] }>(
     `/api/music/radio/${encodeURIComponent(sourceId)}`
   ).then((data) => data.tracks);
+}
+
+/**
+ * Onde mais dá pra ouvir a faixa. O player recorre a isto quando o
+ * áudio completo falha — em servidor de datacenter o YouTube recusa
+ * liberar o stream.
+ */
+export function getAlternatives(
+  sourceId: string,
+  meta: { title: string; artist: string; durationSec?: number | null }
+) {
+  const params = new URLSearchParams({ title: meta.title, artist: meta.artist });
+  if (meta.durationSec) params.set('duration', String(Math.round(meta.durationSec)));
+
+  return request<AlternativesResult>(
+    `/api/music/alternatives/${encodeURIComponent(sourceId)}?${params.toString()}`
+  );
 }
 
 /** URL pro <audio src>. Passa pelo backend: as URLs do Google são travadas por IP. */

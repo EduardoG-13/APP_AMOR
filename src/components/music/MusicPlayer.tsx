@@ -22,10 +22,17 @@ import {
 import { usePlayerStore } from '../../store/usePlayerStore';
 import { useAppStore } from '../../store/useAppStore';
 import { useParty } from '../../hooks/useParty';
-import { audioDownloadUrl, audioStreamUrl, apiUrl, getLyrics, videoStreamUrl } from '../../lib/api';
+import {
+  audioDownloadUrl,
+  audioStreamUrl,
+  apiUrl,
+  getAlternatives,
+  getLyrics,
+  videoStreamUrl,
+} from '../../lib/api';
 import { DRIFT_TOLERANCE_SEC, HEARTBEAT_MS } from '../../lib/party';
 import { cn, formatSeconds } from '../../lib/utils';
-import type { LyricsLine } from '../../types';
+import type { AlternativesResult, LyricsLine } from '../../types';
 
 /**
  * Lê a mensagem de erro real do backend. Sem isso o <audio> só emite
@@ -86,6 +93,12 @@ export function MusicPlayer() {
   const [buffering, setBuffering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showQueue, setShowQueue] = useState(false);
+  // Quando o audio completo nao vem (o YouTube recusa servidor de
+  // datacenter), caimos na previa de 30s da Deezer em vez de so
+  // mostrar erro.
+  const [alternatives, setAlternatives] = useState<AlternativesResult | null>(null);
+  const [isPreview, setIsPreview] = useState(false);
+  const triedFallback = useRef<string | null>(null);
   const [lyrics, setLyrics] = useState<{
     synced: LyricsLine[] | null;
     text: string | null;
@@ -169,6 +182,8 @@ export function MusicPlayer() {
 
     setError(null);
     setBuffering(true);
+    setIsPreview(false);
+    setAlternatives(null);
 
     const restore = carryPosition.current;
     carryPosition.current = 0;
@@ -356,6 +371,49 @@ export function MusicPlayer() {
     toggleVideo();
   };
 
+  /**
+   * O audio completo falhou. Antes de mostrar erro, procura a mesma
+   * faixa na Deezer e no Spotify: a previa de 30s da Deezer e publica
+   * e serve pra confirmar que e a musica certa, e os links deixam
+   * ouvir inteira no app de cada um.
+   */
+  const handleAudioError = async () => {
+    setBuffering(false);
+
+    const audio = audioRef.current;
+    // Se a propria previa falhar, para por aqui em vez de repetir.
+    if (!audio || triedFallback.current === track.sourceId) {
+      const motivo = await describeMediaFailure(audioStreamUrl(track.sourceId));
+      setError(motivo);
+      return;
+    }
+
+    triedFallback.current = track.sourceId;
+
+    try {
+      const found = await getAlternatives(track.sourceId, {
+        title: track.title,
+        artist: track.artist,
+        durationSec: track.durationSec,
+      });
+
+      setAlternatives(found);
+
+      if (found.previewUrl) {
+        setIsPreview(true);
+        setError(null);
+        audio.src = found.previewUrl;
+        audio.load();
+        void audio.play().catch(() => setPlaying(false));
+        return;
+      }
+    } catch {
+      // sem alternativa: cai na mensagem de erro normal
+    }
+
+    setError(await describeMediaFailure(audioStreamUrl(track.sourceId)));
+  };
+
   const mediaEvents = {
     onTimeUpdate: (event: React.SyntheticEvent<HTMLMediaElement>) =>
       setPosition(event.currentTarget.currentTime),
@@ -375,14 +433,7 @@ export function MusicPlayer() {
   return (
     <>
       {/* Elemento de áudio: fica sempre montado pra não perder estado. */}
-      <audio
-        ref={audioRef}
-        {...mediaEvents}
-        onError={() => {
-          setBuffering(false);
-          void describeMediaFailure(audioStreamUrl(track.sourceId)).then(setError);
-        }}
-      />
+      <audio ref={audioRef} {...mediaEvents} onError={handleAudioError} />
 
       {/* Videoclipe */}
       {showVideo && (
@@ -525,6 +576,34 @@ export function MusicPlayer() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5">
           {error && (
             <p className="text-[11px] text-rose-400 text-center pb-1.5 font-medium">{error}</p>
+          )}
+
+          {isPreview && (
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pb-1.5 text-[11px]">
+              <span className="text-amber-300 font-medium">
+                Previa de 30s — ouca inteira em:
+              </span>
+              {alternatives?.spotify?.url && (
+                <a
+                  href={alternatives.spotify.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-bold text-emerald-400 hover:underline"
+                >
+                  Spotify
+                </a>
+              )}
+              {alternatives?.deezer?.url && (
+                <a
+                  href={alternatives.deezer.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-bold text-fuchsia-400 hover:underline"
+                >
+                  Deezer
+                </a>
+              )}
+            </div>
           )}
 
           <div className="flex items-center gap-3 sm:gap-6">

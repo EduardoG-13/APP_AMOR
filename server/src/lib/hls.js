@@ -77,8 +77,11 @@ export function looksLikeManifest(url, contentType) {
  * poucos segundos e nunca deve ser guardado.
  */
 const SEGMENT_TTL_MS = 30_000;
-const MAX_CACHE_BYTES = 64 * 1024 * 1024;
-const MAX_SEGMENT_BYTES = 12 * 1024 * 1024;
+// Num container de 512 MB, cache grande e o que sobra pro resto
+// competem pelo mesmo espaco. 24 MB seguram varios segmentos de
+// canal ao vivo, que e o caso que importa aqui.
+const MAX_CACHE_BYTES = 24 * 1024 * 1024;
+const MAX_SEGMENT_BYTES = 8 * 1024 * 1024;
 
 const segments = new Map();
 const inFlight = new Map();
