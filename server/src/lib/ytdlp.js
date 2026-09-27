@@ -26,6 +26,11 @@ const mediaCache = new TtlCache({ ttlMs: 2 * 60 * 60 * 1000, maxEntries: 300 });
 const infoCache = new TtlCache({ ttlMs: 6 * 60 * 60 * 1000, maxEntries: 400 });
 
 let resolvedCommand = null;
+const activeChildren = new Set();
+
+export function stopYtdlp() {
+  for (const child of activeChildren) child.kill();
+}
 
 /**
  * Ordem de procura: variável de ambiente, binário baixado no build
@@ -59,7 +64,9 @@ function runYtdlp(args, { timeoutMs = 60_000 } = {}) {
     const child = spawn(bin, [...prefix, ...args], {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
+      ...(process.env.NOSSA_SESSAO_NATIVE === '1' ? { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } } : {}),
     });
+    activeChildren.add(child);
 
     let stdout = '';
     let stderr = '';
@@ -76,6 +83,7 @@ function runYtdlp(args, { timeoutMs = 60_000 } = {}) {
     });
 
     child.on('error', (error) => {
+      activeChildren.delete(child);
       clearTimeout(timer);
       if (error.code === 'ENOENT') {
         return reject(
@@ -91,6 +99,7 @@ function runYtdlp(args, { timeoutMs = 60_000 } = {}) {
     });
 
     child.on('close', (code) => {
+      activeChildren.delete(child);
       clearTimeout(timer);
       if (code !== 0) {
         const message = stderr.split('\n').filter(Boolean).pop() || `yt-dlp saiu com código ${code}`;
@@ -170,6 +179,8 @@ function argsForClient(client) {
 }
 
 const BASE_ARGS = [
+  '--ignore-config',
+  ...(process.env.YTDLP_NODE_PATH ? ['--js-runtimes', `node:${process.env.YTDLP_NODE_PATH}`] : []),
   '--no-warnings',
   '--no-playlist',
   '--no-progress',

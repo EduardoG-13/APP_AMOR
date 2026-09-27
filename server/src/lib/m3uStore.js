@@ -1,11 +1,10 @@
 import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import readline from 'node:readline';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
-import { classifyEntry, isAdultContent, normalizeStreamUrl, parseEpisode, splitYear } from './m3u.js';
+import { classifyEntry, isAdultContent, normalizeStreamUrl, parseEpisode, splitYear, parseExtinf, resolveMediaUrl } from './m3u.js';
 
 /**
  * Guarda da lista do provedor.
@@ -21,7 +20,7 @@ import { classifyEntry, isAdultContent, normalizeStreamUrl, parseEpisode, splitY
  * categoria e a ficha das séries. As buscas varrem o arquivo.
  */
 
-const ROOT = path.join(os.tmpdir(), 'nossa-sessao-iptv');
+const ROOT = process.env.IPTV_CACHE_DIR || path.join(os.tmpdir(), 'nossa-sessao-iptv');
 if (!existsSync(ROOT)) mkdirSync(ROOT, { recursive: true });
 
 /** Índices leves por fonte: nada de canal aqui dentro. */
@@ -114,11 +113,8 @@ export async function ingest(sourceUrl, headers) {
     }
 
     if (line.startsWith('#EXTINF:')) {
-      pending = {
-        name: (line.split(',').slice(1).join(',') || '').trim() || 'Sem nome',
-        logo: line.match(/tvg-logo="([^"]*)"/)?.[1] || null,
-        group: line.match(/group-title="([^"]*)"/)?.[1] || null,
-      };
+      pending = parseExtinf(line);
+      pending.logo = resolveMediaUrl(pending.logo, response.url || sourceUrl);
       continue;
     }
 
@@ -129,9 +125,12 @@ export async function ingest(sourceUrl, headers) {
 
     if (line.startsWith('#') || !pending) continue;
 
+    const streamUrl = resolveMediaUrl(line, response.url || sourceUrl);
+    if (!streamUrl) { pending = null; continue; }
+
     total += 1;
     const group = pending.group || 'Sem categoria';
-    const kind = classifyEntry({ name: pending.name, group, url: line });
+    const kind = classifyEntry({ name: pending.name, group, url: streamUrl });
     const adult = isAdultContent(pending.name, group);
     const episode = kind === 'series' ? parseEpisode(pending.name) : null;
     const seriesKey = episode ? normalizeSeriesKey(episode.seriesName) : null;
@@ -162,7 +161,7 @@ export async function ingest(sourceUrl, headers) {
     const entry = {
       i: total,
       n: pending.name,
-      u: normalizeStreamUrl(line),
+      u: normalizeStreamUrl(streamUrl),
       l: pending.logo,
       g: group,
       k: kind,

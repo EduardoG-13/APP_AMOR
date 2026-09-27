@@ -1,4 +1,3 @@
-import { env } from '../../env.js';
 import { fetchJson } from '../http.js';
 import { getOAuthAccount, saveOAuthAccount } from '../supabase.js';
 import { pickBestMatch } from '../match.js';
@@ -121,7 +120,7 @@ export async function openSession(arl) {
 
 export async function getSessionForProfile(profile) {
   const account = await getOAuthAccount('deezer', profile);
-  const arl = account?.access_token || env.deezer.accessToken;
+  const arl = account?.access_token;
 
   if (!arl) {
     throw Object.assign(

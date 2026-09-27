@@ -147,7 +147,7 @@ function collectItems(node, found = [], depth = 0) {
     return found;
   }
 
-  for (const key of ['contents', 'items', 'results', 'songs', 'videos', 'sections']) {
+  for (const key of ['contents', 'content', 'primary', 'items', 'results', 'songs', 'videos', 'sections']) {
     if (node[key]) collectItems(node[key], found, depth + 1);
   }
 
@@ -212,7 +212,8 @@ export async function getRadio(sourceId, limit = 20) {
 
   let raw;
   try {
-    raw = await yt.music.getUpNext(sourceId);
+    raw = await yt.music.getUpNext(sourceId, true);
+    if (collectItems(raw).length < 2) raw = await yt.music.getRelated(sourceId);
   } catch {
     try {
       raw = await yt.music.getRelated(sourceId);

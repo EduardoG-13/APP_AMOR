@@ -5,6 +5,7 @@ import { deleteOAuthAccount, getOAuthAccount, saveOAuthAccount } from '../lib/su
 import * as spotify from '../lib/platforms/spotify.js';
 import * as youtube from '../lib/platforms/youtube.js';
 import * as deezer from '../lib/platforms/deezer.js';
+import { startNativeLogin, completeNativeLogin, pollNativeLogin } from '../lib/nativeOAuth.js';
 
 export const oauthRouter = Router();
 
@@ -19,9 +20,9 @@ function stateSecret() {
  * Render o serviço hiberna, e um state em memória se perderia entre
  * o clique em "conectar" e a volta do callback.
  */
-function signState(profile) {
+function signState(profile, nativeLogin) {
   const payload = Buffer.from(
-    JSON.stringify({ profile, exp: Date.now() + 10 * 60 * 1000 })
+    JSON.stringify({ profile, nativeLogin, exp: Date.now() + 10 * 60 * 1000 })
   ).toString('base64url');
   const signature = crypto.createHmac('sha256', stateSecret()).update(payload).digest('base64url');
   return `${payload}.${signature}`;
@@ -39,13 +40,20 @@ function verifyState(state) {
   try {
     const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
     if (!PROFILES.has(data.profile) || data.exp < Date.now()) return null;
-    return data.profile;
+    return data;
   } catch {
     return null;
   }
 }
 
-function backToApp(res, params) {
+function backToApp(res, params, state) {
+  if (state?.nativeLogin) {
+    completeNativeLogin(state.nativeLogin, state.profile, params.status === 'ok');
+    const ok = params.status === 'ok';
+    res.set('Cache-Control', 'no-store');
+    res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
+    return res.type('html').send(`<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nossa Sessão — Spotify</title><body style="background:#08090d;color:#fff;font:18px system-ui;padding:32px;line-height:1.6"><h1>${ok ? 'Spotify conectado' : 'Conexão não concluída'}</h1><p>${ok ? 'Volte ao app Nossa Sessão. A conexão será reconhecida e você poderá importar sua playlist.' : 'Volte ao app e tente conectar novamente.'}</p></body></html>`);
+  }
   const url = new URL(env.frontendUrl);
   url.searchParams.set('view', 'music');
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
@@ -75,7 +83,7 @@ oauthRouter.get('/status', async (req, res, next) => {
         configured: hasGoogle(),
       },
       deezer: {
-        connected: Boolean(deezerAccount) || Boolean(env.deezer.accessToken),
+        connected: Boolean(deezerAccount),
         displayName: deezerAccount?.display_name || null,
         // A Deezer não tem app pra configurar: liga com o cookie arl.
         configured: true,
@@ -84,6 +92,22 @@ oauthRouter.get('/status', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+oauthRouter.post('/native/start', (req, res, next) => {
+  try {
+    const { profile } = req.body || {};
+    if (!PROFILES.has(profile)) return res.status(400).json({ error: 'Perfil inválido.' });
+    if (!hasSpotify()) return res.status(503).json({ error: 'Spotify não configurado no servidor.' });
+    const login = startNativeLogin(profile);
+    res.set('Cache-Control', 'no-store').json({ loginId: login.id, pollSecret: login.pollSecret,
+      authorizationUrl: spotify.buildAuthUrl(signState(profile, { id: login.id, secretHash: login.secretHash, expires: login.expires })) });
+  } catch (error) { next(error); }
+});
+
+oauthRouter.post('/native/poll', (req, res) => {
+  const { loginId, pollSecret } = req.body || {};
+  res.set('Cache-Control', 'no-store').json(pollNativeLogin(String(loginId || ''), String(pollSecret || '')));
 });
 
 oauthRouter.get('/spotify/start', (req, res) => {
@@ -99,13 +123,14 @@ oauthRouter.get('/spotify/start', (req, res) => {
 });
 
 oauthRouter.get('/spotify/callback', async (req, res) => {
+  const state = verifyState(req.query.state);
   try {
+    if (!state) return backToApp(res, { connected: 'spotify', status: 'estado-invalido' });
     if (req.query.error) {
-      return backToApp(res, { connected: 'spotify', status: 'cancelado' });
+      return backToApp(res, { connected: 'spotify', status: 'cancelado' }, state);
     }
 
-    const profile = verifyState(req.query.state);
-    if (!profile) return backToApp(res, { connected: 'spotify', status: 'estado-invalido' });
+    const profile = state.profile;
 
     const tokens = await spotify.exchangeCode(String(req.query.code));
     const me = await spotify.getProfileInfo(tokens.access_token);
@@ -121,10 +146,10 @@ oauthRouter.get('/spotify/callback', async (req, res) => {
       display_name: me?.display_name || me?.id || null,
     });
 
-    backToApp(res, { connected: 'spotify', status: 'ok' });
+    backToApp(res, { connected: 'spotify', status: 'ok' }, state);
   } catch (error) {
     console.error('[oauth/spotify]', error);
-    backToApp(res, { connected: 'spotify', status: 'erro' });
+    backToApp(res, { connected: 'spotify', status: 'erro' }, state);
   }
 });
 
@@ -146,7 +171,7 @@ oauthRouter.get('/google/callback', async (req, res) => {
       return backToApp(res, { connected: 'youtube', status: 'cancelado' });
     }
 
-    const profile = verifyState(req.query.state);
+    const profile = verifyState(req.query.state)?.profile;
     if (!profile) return backToApp(res, { connected: 'youtube', status: 'estado-invalido' });
 
     const tokens = await youtube.exchangeCode(String(req.query.code));

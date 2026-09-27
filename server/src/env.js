@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 // Lê o server/.env e também o .env da raiz, nessa ordem, porque é
 // comum as chaves acabarem num arquivo só. O que já estiver definido
 // tem prioridade, então o server/.env continua mandando.
-{
+if (process.env.NOSSA_SESSAO_NATIVE !== '1') {
   const serverDir = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
     path.resolve(serverDir, '..', '.env'),
@@ -93,7 +93,7 @@ export const env = {
 
   supabase: {
     url: process.env.SUPABASE_URL || '',
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    serviceRoleKey: process.env.NOSSA_SESSAO_NATIVE === '1' ? '' : process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   },
 
   spotify: {

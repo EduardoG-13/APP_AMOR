@@ -13,6 +13,27 @@ const ADULT_PATTERNS =
 const MOVIE_GROUP_PATTERNS = /\b(filmes?|movies?|vod|cinema|lançamentos|lancamentos)\b/i;
 const SERIES_GROUP_PATTERNS = /\b(s[ée]ries?|series|novelas?|animes?|doramas?|temporadas?)\b/i;
 
+/** A vírgula do nome fica fora das aspas dos atributos (logos podem ter vírgulas). */
+export function parseExtinf(line) {
+  let quote = null, comma = -1;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (quote) { if (char === quote) quote = null; }
+    else if (char === '"' || char === "'") quote = char;
+    else if (char === ',') { comma = i; break; }
+  }
+  const attrs = comma < 0 ? line : line.slice(0, comma);
+  const attr = (name) => attrs.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(["'])(.*?)\\1`))?.[2] || null;
+  return { name: (comma < 0 ? '' : line.slice(comma + 1)).trim() || 'Sem nome',
+    logo: attr('tvg-logo'), group: attr('group-title') };
+}
+
+export function resolveMediaUrl(value, base) {
+  if (!value) return null;
+  try { const url = new URL(value, base); return ['http:', 'https:'].includes(url.protocol) ? url.href : null; }
+  catch { return null; }
+}
+
 /**
  * Padrões de episódio: "S01E09", "S01 E09", "1x09".
  * O que vem antes é o nome da série; o que vem depois costuma ser
@@ -114,11 +135,7 @@ export function parseM3u(content) {
     if (!line) continue;
 
     if (line.startsWith('#EXTINF:')) {
-      pending = {
-        name: (line.split(',').slice(1).join(',') || '').trim() || 'Sem nome',
-        logo: line.match(/tvg-logo="([^"]*)"/)?.[1] || null,
-        group: line.match(/group-title="([^"]*)"/)?.[1] || null,
-      };
+      pending = parseExtinf(line);
       continue;
     }
 

@@ -51,6 +51,9 @@ export async function saveOAuthAccount(account) {
 }
 
 export async function deleteOAuthAccount(provider, profile) {
+  const { error: exportsError } = await getSupabase().from('playlist_exports').delete()
+    .eq('platform', provider === 'google' ? 'youtube' : provider).eq('profile', profile);
+  if (exportsError) throw Object.assign(new Error(exportsError.message), { status: 500 });
   const { error } = await getSupabase()
     .from('oauth_accounts')
     .delete()

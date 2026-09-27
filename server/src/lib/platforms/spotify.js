@@ -202,6 +202,29 @@ export async function getPlaylist(token, playlistId) {
   }
 }
 
+/** A API atual só libera os itens ao dono/colaborador da playlist. */
+export async function importPlaylist(token, playlistId, limit = 1000) {
+  const playlist = await apiRequest(token, `/playlists/${playlistId}`);
+  const available = playlist.items || playlist.tracks;
+  if (!available) throw Object.assign(new Error('O Spotify só permite importar playlists da conta conectada ou das quais ela é colaboradora.'), { status: 403 });
+  const tracks = []; let skipped = 0, offset = 0, more = true;
+  while (more && offset < limit) {
+    const page = await apiRequest(token, `/playlists/${playlistId}/items?limit=100&offset=${offset}`);
+    for (const row of page.items || []) {
+      if (tracks.length + skipped >= limit) break;
+      const item = row.item || row.track;
+      if (!item?.name || !item.artists?.length || row.is_local || item.type === 'episode') { skipped++; continue; }
+      tracks.push({ title: item.name.slice(0, 300), artist: item.artists.map(artist => artist.name).join(', ').slice(0, 300),
+        album: item.album?.name || null, coverUrl: item.album?.images?.[0]?.url || null,
+        durationSec: Math.round((item.duration_ms || 0) / 1000) || null, sourceId: null });
+      if (tracks.length + skipped >= limit) break;
+    }
+    offset += page.items?.length || 0; more = Boolean(page.next) && Boolean(page.items?.length);
+  }
+  return { name: playlist.name || 'Playlist do Spotify', description: '', coverUrl: playlist.images?.[0]?.url || null,
+    tracks, skipped, total: available.total ?? tracks.length + skipped, truncated: more || Number(available.total) > tracks.length + skipped };
+}
+
 /** URIs já presentes na playlist remota — evita duplicar em re-sync. */
 export async function listPlaylistTrackUris(token, playlistId) {
   const uris = new Set();
