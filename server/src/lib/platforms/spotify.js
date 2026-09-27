@@ -161,8 +161,14 @@ export async function findTrack(token, target) {
   return null;
 }
 
-export async function createPlaylist(token, userId, { name, description }) {
-  const playlist = await apiRequest(token, `/users/${encodeURIComponent(userId)}/playlists`, {
+/**
+ * Na migracao de fevereiro de 2026 o Spotify aposentou os endpoints
+ * antigos de escrita para apps em modo de desenvolvimento: desde 9 de
+ * marco eles respondem 403 pra qualquer chamada. Os substitutos sao
+ * /me/playlists e /playlists/{id}/items.
+ */
+export async function createPlaylist(token, { name, description }) {
+  const playlist = await apiRequest(token, '/me/playlists', {
     method: 'POST',
     body: JSON.stringify({
       name,
@@ -199,7 +205,7 @@ export async function getPlaylist(token, playlistId) {
 /** URIs já presentes na playlist remota — evita duplicar em re-sync. */
 export async function listPlaylistTrackUris(token, playlistId) {
   const uris = new Set();
-  let url = `/playlists/${playlistId}/tracks?fields=items(track(uri)),next&limit=100`;
+  let url = `/playlists/${playlistId}/items?fields=items(track(uri)),next&limit=100`;
 
   while (url) {
     const page = await apiRequest(token, url);
@@ -214,7 +220,7 @@ export async function listPlaylistTrackUris(token, playlistId) {
 
 export async function addTracks(token, playlistId, uris) {
   for (const batch of chunk(uris, 100)) {
-    await apiRequest(token, `/playlists/${playlistId}/tracks`, {
+    await apiRequest(token, `/playlists/${playlistId}/items`, {
       method: 'POST',
       body: JSON.stringify({ uris: batch }),
     });

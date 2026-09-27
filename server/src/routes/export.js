@@ -82,11 +82,10 @@ function asTarget(track) {
 const adapters = {
   async spotify(profile) {
     const token = await spotify.getValidToken(profile);
-    const me = await spotify.getProfileInfo(token);
 
     return {
       getRemote: (id) => spotify.getPlaylist(token, id),
-      create: (meta) => spotify.createPlaylist(token, me.id, meta),
+      create: (meta) => spotify.createPlaylist(token, meta),
       listRemoteIds: (id) => spotify.listPlaylistTrackUris(token, id),
       // No Spotify o catálogo é outro: precisa procurar a equivalente.
       resolve: async (track) => {
