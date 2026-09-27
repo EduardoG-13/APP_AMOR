@@ -209,7 +209,7 @@ export async function importPlaylist(token, playlistId, limit = 1000) {
   if (!available) throw Object.assign(new Error('O Spotify só permite importar playlists da conta conectada ou das quais ela é colaboradora.'), { status: 403 });
   const tracks = []; let skipped = 0, offset = 0, more = true;
   while (more && offset < limit) {
-    const page = await apiRequest(token, `/playlists/${playlistId}/items?limit=100&offset=${offset}`);
+    const page = await apiRequest(token, `/playlists/${playlistId}/items?limit=50&offset=${offset}`);
     for (const row of page.items || []) {
       if (tracks.length + skipped >= limit) break;
       const item = row.item || row.track;
@@ -231,7 +231,7 @@ export async function listPlaylistTrackUris(token, playlistId) {
   // No endpoint novo a faixa vem em `item`, nao em `track`. Pedir
   // fields=items(track(uri)) devolve objetos vazios, e a playlist
   // parecia sempre vazia -- por isso o re-sync duplicava tudo.
-  let url = `/playlists/${playlistId}/items?fields=items(item(uri),track(uri)),next&limit=100`;
+  let url = `/playlists/${playlistId}/items?fields=items(item(uri),track(uri)),next&limit=50`;
 
   while (url) {
     const page = await apiRequest(token, url);
